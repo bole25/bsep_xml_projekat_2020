@@ -7,6 +7,11 @@ import java.io.IOException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -18,7 +23,9 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.springframework.stereotype.Service;
 
+
 import com.xml_rent_a_car.model.data.IssuerData;
+import com.xml_rent_a_car.model.dto.CertificateDTO;
 
 import java.io.FileOutputStream;
 
@@ -180,5 +187,69 @@ public class KeyStoreFileService {
 		} catch (KeyStoreException e) {
 			e.printStackTrace();
 		}
+	}
+	public Set<CertificateDTO> getAllCertificates() throws KeyStoreException, NoSuchAlgorithmException, CertificateException, FileNotFoundException, IOException{
+		Set<CertificateDTO> certificates = new HashSet<CertificateDTO>();
+			 
+			 KeyStore keyStore = KeyStore.getInstance("JKS");
+			 
+			 //----first keystore file
+			 keyStore.load(new FileInputStream("immediateCertificateKS.jks"), "keystore".toCharArray());
+			 
+			 // iterate over all aliases
+			 Enumeration<String> es = keyStore.aliases();
+			 String alias = "";
+			 while(es.hasMoreElements()) {
+				 alias = (String) es.nextElement();
+				 Boolean hasAlias = keyStore.isKeyEntry(alias);
+				 if(hasAlias) {
+					 Certificate cert = readCertificate("immediateCertificateKS.jks","keystore", alias);
+					 if(cert instanceof X509Certificate) {
+						 X509Certificate cert509 = (X509Certificate) cert;
+						 String s = cert509.getIssuerX500Principal().getName();
+						 certificates.add(new CertificateDTO(cert509));
+					 }
+				 }
+			 }
+			 
+			 //----second keystore file
+			 keyStore.load(new FileInputStream("rootCertificateKS.jks"), "keystore".toCharArray());
+			 
+			 // iterate over all aliases
+			 Enumeration<String> es1 = keyStore.aliases();
+			 String alias1 = "";
+			 while(es1.hasMoreElements()) {
+				 alias1 = (String) es1.nextElement();
+				 Boolean hasAlias = keyStore.isKeyEntry(alias1);
+				 if(hasAlias) {
+					 Certificate cert = readCertificate("rootCertificateKS.jks","keystore", alias1);
+					 if(cert instanceof X509Certificate) {
+						 X509Certificate cert509 = (X509Certificate) cert;
+						 String s = cert509.getIssuerX500Principal().get;
+						 certificates.add(new CertificateDTO(cert509));
+					 }
+				 }
+			 }
+			 
+			 //----third keystore file
+			 keyStore.load(new FileInputStream("endEntityCertificateKS.jks"), "keystore".toCharArray());
+			 
+			 // iterate over all aliases
+			 Enumeration<String> es2 = keyStore.aliases();
+			 String alias2 = "";
+			 while(es2.hasMoreElements()) {
+				 alias2 = (String) es2.nextElement();
+				 Boolean hasAlias = keyStore.isKeyEntry(alias2);
+				 if(hasAlias) {
+					 Certificate cert = readCertificate("rootCertificateKS.jks","keystore", alias1);
+					 if(cert instanceof X509Certificate) {
+						 X509Certificate cert509 = (X509Certificate) cert;
+						 String s = cert509.getIssuerX500Principal().getName();
+						 certificates.add(new CertificateDTO(cert509));
+					 }
+				 }
+			 }
+			 
+			 return certificates;
 	}
 }
