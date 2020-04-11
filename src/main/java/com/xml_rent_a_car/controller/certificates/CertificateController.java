@@ -53,8 +53,9 @@ public class CertificateController {
             System.out.println(cert);
             System.out.println("-------------------------------------------------------");
 
-            //TODO 3 Uraditi cuvanje sertifikata u keystore u zavisnosti koji se pravi
+            //TODO NEMANJA Uraditi cuvanje sertifikata u keystore u zavisnosti koji se pravi
             //password za sve keystore je keystore malim slovima
+            //TODO NEMANJA Uraditi da kad se napravi certifikat, da se napravi i fajl alias.cer na nekoj putanji
 
             return new ResponseEntity<>("", HttpStatus.OK);
         } catch (Exception e) {
