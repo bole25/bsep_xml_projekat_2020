@@ -1,10 +1,8 @@
 package com.xml_rent_a_car.controller.certificates;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.KeyPair;
-import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -12,24 +10,29 @@ import java.security.cert.X509Certificate;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.xml_rent_a_car.model.Certificate;
 import com.xml_rent_a_car.model.EndEntityCertificate;
 import com.xml_rent_a_car.model.IntermediateCertificate;
 import com.xml_rent_a_car.model.SelfSignedCertificate;
+import com.xml_rent_a_car.model.data.IssuerData;
+import com.xml_rent_a_car.model.data.SubjectData;
+import com.xml_rent_a_car.model.dto.CertificateDTO;
+import com.xml_rent_a_car.model.dto.SubjectDataDTO;
 import com.xml_rent_a_car.model.enumeration.CertificateEnum;
 import com.xml_rent_a_car.repository.CertificateRepository;
 import com.xml_rent_a_car.repository.EndEntityCertificateRepository;
 import com.xml_rent_a_car.repository.IntermediateCertificateRepository;
 import com.xml_rent_a_car.repository.SelfSignedCertificateRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import com.xml_rent_a_car.model.data.IssuerData;
-import com.xml_rent_a_car.model.data.SubjectData;
-import com.xml_rent_a_car.model.dto.CertificateDTO;
-import com.xml_rent_a_car.model.dto.SubjectDataDTO;
 import com.xml_rent_a_car.service.certificates.CertificateService;
 import com.xml_rent_a_car.service.certificates.KeyStoreFileService;
 
@@ -60,7 +63,7 @@ public class CertificateController {
 
     @PostMapping("/create/{certificateType}/{parent}")
     public ResponseEntity<String> createCertificate(@RequestBody SubjectDataDTO subjectDataDTO, @PathVariable String certificateType, @PathVariable String parent){
-
+    	
         try {
             KeyPair keyPairIssuer = certificateService.generateKeyPair();
             SubjectData subjectData = certificateService.generateSubjectData(subjectDataDTO);
@@ -136,10 +139,6 @@ public class CertificateController {
             else {
 
             }
-
-            //TODO 3 Uraditi cuvanje sertifikata u keystore u zavisnosti koji se pravi
-            //password za sve keystore je keystore malim slovima
-
 
         } catch (Exception e) {
             e.printStackTrace();

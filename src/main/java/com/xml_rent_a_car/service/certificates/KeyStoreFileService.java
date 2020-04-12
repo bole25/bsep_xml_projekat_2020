@@ -205,7 +205,6 @@ public class KeyStoreFileService {
 					 Certificate cert = readCertificate("immediateCertificateKS.jks","keystore", alias);
 					 if(cert instanceof X509Certificate) {
 						 X509Certificate cert509 = (X509Certificate) cert;
-						 String s = cert509.getIssuerX500Principal().getName();
 						 certificates.add(new CertificateDTO(cert509, alias));
 					 }
 				 }
@@ -224,8 +223,7 @@ public class KeyStoreFileService {
 					 Certificate cert = readCertificate("rootCertificateKS.jks","keystore", alias1);
 					 if(cert instanceof X509Certificate) {
 						 X509Certificate cert509 = (X509Certificate) cert;
-						 String s = cert509.getIssuerX500Principal().getName();
-						 certificates.add(new CertificateDTO(cert509,alias));
+						 certificates.add(new CertificateDTO(cert509,alias1));
 					 }
 				 }
 			 }
@@ -240,11 +238,10 @@ public class KeyStoreFileService {
 				 alias2 = (String) es2.nextElement();
 				 Boolean hasAlias = keyStore.isKeyEntry(alias2);
 				 if(hasAlias) {
-					 Certificate cert = readCertificate("rootCertificateKS.jks","keystore", alias1);
+					 Certificate cert = readCertificate("endEntityCertificateKS.jks","keystore", alias2);
 					 if(cert instanceof X509Certificate) {
 						 X509Certificate cert509 = (X509Certificate) cert;
-						 String s = cert509.getIssuerX500Principal().getName();
-						 certificates.add(new CertificateDTO(cert509, alias));
+						 certificates.add(new CertificateDTO(cert509, alias2));
 					 }
 				 }
 			 }
@@ -269,7 +266,6 @@ public class KeyStoreFileService {
 				Certificate cert = readCertificate(fileName,"keystore", alias);
 				if(cert instanceof X509Certificate) {
 					X509Certificate cert509 = (X509Certificate) cert;
-					String s = cert509.getIssuerX500Principal().getName();
 					certificates.add(new CertificateDTO(cert509, alias));
 				}
 			}
