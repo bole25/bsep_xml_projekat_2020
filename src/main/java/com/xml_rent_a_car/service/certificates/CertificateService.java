@@ -30,6 +30,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 public class CertificateService {
@@ -116,7 +117,7 @@ public class CertificateService {
         SimpleDateFormat iso8601Formater = new SimpleDateFormat("yyyy-MM-dd");
         Date startDate = iso8601Formater.parse("2017-12-31");
         Date endDate = iso8601Formater.parse("2022-12-31");
-        String sn="1";
+        String sn=generateSn();
         //klasa X500NameBuilder pravi X500Name objekat koji predstavlja podatke o vlasniku
         X500NameBuilder builder = new X500NameBuilder(BCStyle.INSTANCE);
         builder.addRDN(BCStyle.CN, subjectDataDTO.getCn());
@@ -127,7 +128,7 @@ public class CertificateService {
         builder.addRDN(BCStyle.C, subjectDataDTO.getC());
         builder.addRDN(BCStyle.E, subjectDataDTO.getE());
         //UID (USER ID) je ID korisnika
-        builder.addRDN(BCStyle.UID, "123456");
+        builder.addRDN(BCStyle.UID, generateUniqueID());
 
         //Kreiraju se podaci za sertifikat, sto ukljucuje:
         // - javni kljuc koji se vezuje za sertifikat
@@ -141,18 +142,37 @@ public class CertificateService {
     //U trenutku kada bude realizovano cuvanje i ucitavanje sertifikata imacemo id-jeve svih vlasnika sertifikata
     //i moci cemo da koristimo njihove podatke i da kreiramo issuere
     //TODO 2 Posle realizacije cuvanja i ucitavanja prepraviti funkciju tako da se sa fronta dobija id postojeceg sertifikata i taj sertifikat koristi za issuer-a
-    public IssuerData generateIssuerData(PrivateKey issuerKey){
+    public IssuerData generateIssuerData(PrivateKey issuerKey, SubjectDataDTO data){
         X500NameBuilder builder = new X500NameBuilder(BCStyle.INSTANCE);
-        builder.addRDN(BCStyle.CN, "Nikola Luburic");
-        builder.addRDN(BCStyle.SURNAME, "Luburic");
-        builder.addRDN(BCStyle.GIVENNAME, "Nikola");
-        builder.addRDN(BCStyle.O, "UNS-FTN");
-        builder.addRDN(BCStyle.OU, "Katedra za informatiku");
-        builder.addRDN(BCStyle.C, "RS");
-        builder.addRDN(BCStyle.E, "nikola.luburic@uns.ac.rs");
+        builder.addRDN(BCStyle.CN, data.getCn());
+        builder.addRDN(BCStyle.SURNAME, data.getSurname());
+        builder.addRDN(BCStyle.GIVENNAME, data.getGivenname());
+        builder.addRDN(BCStyle.O, data.getO());
+        builder.addRDN(BCStyle.OU, data.getOu());
+        builder.addRDN(BCStyle.C, data.getC());
+        builder.addRDN(BCStyle.E, data.getE());
         //UID (USER ID) je ID korisnika
-        builder.addRDN(BCStyle.UID, "654321");
+        builder.addRDN(BCStyle.UID, generateUniqueID());
 
         return new IssuerData(builder.build(), issuerKey);
+    }
+
+    public String generateUniqueID(){
+        return UUID.randomUUID().toString();
+    }
+
+    public String generateSn(){
+        return UUID.randomUUID().toString();
+    }
+
+    public void printCertificate(X509Certificate cert){
+        System.out.println("\n===== Podaci o izdavacu sertifikata =====");
+        System.out.println(cert.getIssuerX500Principal().getName());
+        System.out.println("\n===== Podaci o vlasniku sertifikata =====");
+        System.out.println(cert.getSubjectX500Principal().getName());
+        System.out.println("\n===== Sertifikat =====");
+        System.out.println("-------------------------------------------------------");
+        System.out.println(cert);
+        System.out.println("-------------------------------------------------------");
     }
 }
