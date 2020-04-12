@@ -4,20 +4,11 @@ import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.PrivateKey;
-import java.security.UnrecoverableKeyException;
+import java.util.*;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
@@ -35,7 +26,15 @@ import java.io.FileOutputStream;
 public class KeyStoreFileService {
 
 	public KeyStore keyStore;
-	
+
+	public KeyStore getKeyStore() {
+		return keyStore;
+	}
+
+	public void setKeyStore(KeyStore keyStore) {
+		this.keyStore = keyStore;
+	}
+
 	public KeyStoreFileService() {
 		try {
 			keyStore = KeyStore.getInstance("JKS", "SUN");
@@ -181,7 +180,7 @@ public class KeyStoreFileService {
 		}
 	}
 	
-	public void write(String alias, PrivateKey privateKey, char[] password, Certificate certificate) {
+	public void write(String alias,PrivateKey privateKey, char[] password, Certificate certificate) {
 		try {
 			keyStore.setKeyEntry(alias, privateKey, password, new Certificate[] {certificate});
 		} catch (KeyStoreException e) {
@@ -207,7 +206,7 @@ public class KeyStoreFileService {
 					 if(cert instanceof X509Certificate) {
 						 X509Certificate cert509 = (X509Certificate) cert;
 						 String s = cert509.getIssuerX500Principal().getName();
-						 certificates.add(new CertificateDTO(cert509));
+						 certificates.add(new CertificateDTO(cert509, alias));
 					 }
 				 }
 			 }
@@ -225,8 +224,8 @@ public class KeyStoreFileService {
 					 Certificate cert = readCertificate("rootCertificateKS.jks","keystore", alias1);
 					 if(cert instanceof X509Certificate) {
 						 X509Certificate cert509 = (X509Certificate) cert;
-						 String s = cert509.getIssuerX500Principal().get;
-						 certificates.add(new CertificateDTO(cert509));
+						 String s = cert509.getIssuerX500Principal().getName();
+						 certificates.add(new CertificateDTO(cert509,alias));
 					 }
 				 }
 			 }
@@ -245,11 +244,70 @@ public class KeyStoreFileService {
 					 if(cert instanceof X509Certificate) {
 						 X509Certificate cert509 = (X509Certificate) cert;
 						 String s = cert509.getIssuerX500Principal().getName();
-						 certificates.add(new CertificateDTO(cert509));
+						 certificates.add(new CertificateDTO(cert509, alias));
 					 }
 				 }
 			 }
 			 
 			 return certificates;
+	}
+
+	public Set<CertificateDTO> getValidCertificatesByFileName(String fileName) throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException {
+		Set<CertificateDTO> certificates = new HashSet<CertificateDTO>();
+		KeyStore keyStore = KeyStore.getInstance("JKS");
+
+		//----first keystore file
+		keyStore.load(new FileInputStream(fileName), "keystore".toCharArray());
+
+		// iterate over all aliases
+		Enumeration<String> es = keyStore.aliases();
+		String alias = "";
+		while(es.hasMoreElements()) {
+			alias = (String) es.nextElement();
+			Boolean hasAlias = keyStore.isKeyEntry(alias);
+			if(hasAlias) {
+				Certificate cert = readCertificate(fileName,"keystore", alias);
+				if(cert instanceof X509Certificate) {
+					X509Certificate cert509 = (X509Certificate) cert;
+					String s = cert509.getIssuerX500Principal().getName();
+					certificates.add(new CertificateDTO(cert509, alias));
+				}
+			}
+		}
+		return certificates;
+	}
+
+	public String generateAlias(){
+		return UUID.randomUUID().toString();
+	}
+
+	public void writeCertificateToKS(String fileName, String alias,PrivateKey privateKey, char[] password, Certificate certificate) throws IOException, CertificateException, NoSuchAlgorithmException, NoSuchProviderException, KeyStoreException {
+		keyStore = KeyStore.getInstance("JKS", "SUN");
+
+		FileInputStream file = new FileInputStream(fileName);
+		keyStore.load(file, password);
+		try {
+			keyStore.setKeyEntry(alias, privateKey, password, new Certificate[] {certificate});
+		} catch (KeyStoreException e) {
+			e.printStackTrace();
+		}
+		file.close();
+		FileOutputStream out = new FileOutputStream(fileName);
+		try{
+			keyStore.store(out, password);
+		} catch (KeyStoreException e) {
+			e.printStackTrace();
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		} catch (CertificateException e) {
+			e.printStackTrace();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			out.close();
+		}
+
 	}
 }

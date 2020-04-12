@@ -2,34 +2,43 @@ package com.xml_rent_a_car.model;
 
 import com.xml_rent_a_car.model.data.IssuerData;
 import com.xml_rent_a_car.model.data.SubjectData;
+import com.xml_rent_a_car.model.enumeration.CertificateEnum;
 
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
 import java.security.cert.X509Certificate;
 import java.util.HashSet;
 import java.util.Set;
 
-public class RootCertificate extends Certificate {
-    private Set<Certificate> children;
+@Entity
+@Table
+public class SelfSignedCertificate extends Certificate {
 
-    public RootCertificate(String parentID, Boolean valid, SubjectData subjectData, IssuerData issuerData, X509Certificate x509Certificate) {
-        super(parentID, valid, subjectData, issuerData, x509Certificate);
+    @OneToMany(fetch = FetchType.LAZY)
+    private Set<IntermediateCertificate> children;
+
+    public SelfSignedCertificate(String parentAlias, CertificateEnum type, Boolean valid, String alias) {
+        super(parentAlias,type,valid,alias);
         this.children = new HashSet<>();
     }
 
-    public RootCertificate() {
+    public SelfSignedCertificate() {
         super();
         this.children = new HashSet<>();
     }
 
-    public Set<Certificate> getChildren() {
+    public Set<IntermediateCertificate> getChildren() {
         return children;
     }
 
-    public void setChildren(Set<Certificate> children) {
+    public void setChildren(Set<IntermediateCertificate> children) {
         this.children = children;
     }
 
     //Funkcija koja vraca true ukoliko je uspjesno dodat child ili vraca false ako je doslo do greske
-    public Boolean addChild(Certificate child) {
+    public Boolean addChild(IntermediateCertificate child) {
        try {
            this.children.add(child);
            return Boolean.TRUE;
@@ -39,7 +48,7 @@ public class RootCertificate extends Certificate {
        }
     }
     //Funkcija koja brise i vraca true ako je uspjesno obrisan child ili vraca false ako je doslo do greske
-    public Boolean removeChild(Certificate child){
+    public Boolean removeChild(IntermediateCertificate child){
         try {
             this.children.remove(child);
             return Boolean.TRUE;

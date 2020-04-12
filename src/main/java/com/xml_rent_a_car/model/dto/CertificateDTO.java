@@ -6,19 +6,21 @@ public class CertificateDTO {
 
 	private String issuerName;
 	private String subjectName;
+	private String alias;
 	
 	public CertificateDTO() {
 		super();
 	}
 
-	public CertificateDTO(String issuerName, String subjectName) {
+	public CertificateDTO(String issuerName, String subjectName, String alias) {
 		super();
 		this.issuerName = issuerName;
 		this.subjectName = subjectName;
 	}
-	public CertificateDTO(X509Certificate c) {
+	public CertificateDTO(X509Certificate c, String alias) {
 		issuerName = c.getIssuerX500Principal().getName();
 		subjectName = c.getSubjectX500Principal().getName();
+		this.alias = alias;
 	}
 
 	public String getIssuerName() {
@@ -35,6 +37,13 @@ public class CertificateDTO {
 
 	public void setSubjectName(String subjectName) {
 		this.subjectName = subjectName;
-	}	
-		
+	}
+
+	public String getAlias() {
+		return alias;
+	}
+
+	public void setAlias(String alias) {
+		this.alias = alias;
+	}
 }

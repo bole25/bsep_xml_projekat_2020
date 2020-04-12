@@ -2,29 +2,69 @@ package com.xml_rent_a_car.model;
 
 import com.xml_rent_a_car.model.data.IssuerData;
 import com.xml_rent_a_car.model.data.SubjectData;
+import com.xml_rent_a_car.model.enumeration.CertificateEnum;
+
+
+import static javax.persistence.InheritanceType.JOINED;
+
+import javax.persistence.*;
 
 import java.security.cert.X509Certificate;
 
+@Entity
+@Table
+@Inheritance(strategy = JOINED)
 public class Certificate {
 
-    private String parentID;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column
+    private String parentAlias;
+
+    @Column
+    private CertificateEnum type;
+
+    @Column
     private Boolean valid = Boolean.TRUE;
-    private SubjectData subjectData;
-    private IssuerData issuerData;
-    private X509Certificate x509Certificate;
+
+    @Column(unique = true)
+    private String alias;
 
     public Certificate() {
 
     }
 
-
-
-    public String getParentID() {
-        return parentID;
+    public Certificate(String parentAlias, CertificateEnum type, Boolean valid, String alias) {
+        this.parentAlias = parentAlias;
+        this.type = type;
+        this.valid = valid;
+        this.alias = alias;
     }
 
-    public void setParentID(String parentID) {
-        this.parentID = parentID;
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getParentAlias() {
+        return parentAlias;
+    }
+
+    public void setParentAlias(String parentAlias) {
+        this.parentAlias = parentAlias;
+    }
+
+    public CertificateEnum getType() {
+        return type;
+    }
+
+    public void setType(CertificateEnum type) {
+        this.type = type;
     }
 
     public Boolean getValid() {
@@ -35,35 +75,11 @@ public class Certificate {
         this.valid = valid;
     }
 
-    public SubjectData getSubjectData() {
-        return subjectData;
+    public String getAlias() {
+        return alias;
     }
 
-    public void setSubjectData(SubjectData subjectData) {
-        this.subjectData = subjectData;
-    }
-
-    public IssuerData getIssuerData() {
-        return issuerData;
-    }
-
-    public void setIssuerData(IssuerData issuerData) {
-        this.issuerData = issuerData;
-    }
-
-    public X509Certificate getX509Certificate() {
-        return x509Certificate;
-    }
-
-    public void setX509Certificate(X509Certificate x509Certificate) {
-        this.x509Certificate = x509Certificate;
-    }
-
-    public Certificate(String parentID, Boolean valid, SubjectData subjectData, IssuerData issuerData, X509Certificate x509Certificate) {
-        this.parentID = parentID;
-        this.valid = valid;
-        this.subjectData = subjectData;
-        this.issuerData = issuerData;
-        this.x509Certificate = x509Certificate;
+    public void setAlias(String alias) {
+        this.alias = alias;
     }
 }

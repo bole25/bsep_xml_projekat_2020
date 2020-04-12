@@ -1,8 +1,10 @@
 package com.xml_rent_a_car.controller.certificates;
 
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.KeyPair;
+import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -10,14 +12,19 @@ import java.security.cert.X509Certificate;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.xml_rent_a_car.model.Certificate;
+import com.xml_rent_a_car.model.EndEntityCertificate;
+import com.xml_rent_a_car.model.IntermediateCertificate;
+import com.xml_rent_a_car.model.SelfSignedCertificate;
+import com.xml_rent_a_car.model.enumeration.CertificateEnum;
+import com.xml_rent_a_car.repository.CertificateRepository;
+import com.xml_rent_a_car.repository.EndEntityCertificateRepository;
+import com.xml_rent_a_car.repository.IntermediateCertificateRepository;
+import com.xml_rent_a_car.repository.SelfSignedCertificateRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.xml_rent_a_car.model.data.IssuerData;
 import com.xml_rent_a_car.model.data.SubjectData;
@@ -35,28 +42,105 @@ public class CertificateController {
     
     @Autowired
     private KeyStoreFileService keyStoreFileService;
-    
-    @PostMapping("/create")
-    public ResponseEntity<String> createCertificate(@RequestBody SubjectDataDTO subjectDataDTO){
+
+    @Autowired
+    private SelfSignedCertificateRepository selfSignedCertificateRepository;
+
+    @Autowired
+    private EndEntityCertificateRepository endEntityCertificateRepository;
+
+    @Autowired
+    private CertificateRepository certificateRepository;
+
+    @Autowired
+    private IntermediateCertificateRepository intermediateCertificateRepository;
+
+    public CertificateController() {
+    }
+
+    @PostMapping("/create/{certificateType}/{parent}")
+    public ResponseEntity<String> createCertificate(@RequestBody SubjectDataDTO subjectDataDTO, @PathVariable String certificateType, @PathVariable String parent){
 
         try {
             KeyPair keyPairIssuer = certificateService.generateKeyPair();
             SubjectData subjectData = certificateService.generateSubjectData(subjectDataDTO);
-            IssuerData issuerData = certificateService.generateIssuerData(keyPairIssuer.getPrivate());
-            X509Certificate cert = certificateService.generateCertificate(subjectData, issuerData);
-            System.out.println("\n===== Podaci o izdavacu sertifikata =====");
-            System.out.println(cert.getIssuerX500Principal().getName());
-            System.out.println("\n===== Podaci o vlasniku sertifikata =====");
-            //System.out.println(cert.getSubjectX500Principal().getName());
-            System.out.println("\n===== Sertifikat =====");
-            System.out.println("-------------------------------------------------------");
-            System.out.println(cert);
-            System.out.println("-------------------------------------------------------");
+
+            if(certificateType.equals("selfsigned")){
+                IssuerData issuerData = certificateService.generateIssuerData(keyPairIssuer.getPrivate(), subjectDataDTO);
+                X509Certificate cert = certificateService.generateCertificate(subjectData, issuerData);
+                String alias = keyStoreFileService.generateAlias();
+                keyStoreFileService.writeCertificateToKS("rootCertificateKS.jks", alias, keyPairIssuer.getPrivate(), "keystore".toCharArray(), cert);
+                SelfSignedCertificate sc = new SelfSignedCertificate(alias, CertificateEnum.SELF_SIGNED, Boolean.TRUE, alias);
+                selfSignedCertificateRepository.save(sc);
+                return new ResponseEntity<>("", HttpStatus.OK);
+            }
+            else if (certificateType.equals("intermediate")){
+                Boolean interm = null;
+                try {
+                    Certificate c = certificateRepository.getByAlias(parent);
+                    if (c.getType().equals(CertificateEnum.INTERMEDIATE)){
+                        interm = Boolean.TRUE;
+                    }
+                    else {
+                        interm = Boolean.FALSE;
+                    }
+                }
+                catch (Exception e){
+
+                }
+                try {
+                    if(interm) {
+                        IssuerData issuerData = keyStoreFileService.readIssuerFromStore("immediateCertificateJKS.jks", parent, "keystore".toCharArray(), "keystore".toCharArray());
+                        X509Certificate cert = certificateService.generateCertificate(subjectData, issuerData);
+                        String alias = keyStoreFileService.generateAlias();
+                        keyStoreFileService.writeCertificateToKS("immediateCertificateKS.jks", alias, keyPairIssuer.getPrivate(), "keystore".toCharArray(), cert);
+                        IntermediateCertificate ic = new IntermediateCertificate(parent, CertificateEnum.INTERMEDIATE, Boolean.TRUE, alias);
+                        IntermediateCertificate par = (IntermediateCertificate) certificateRepository.getByAlias(parent);
+                        intermediateCertificateRepository.save(ic);
+                        par.getChildrenIntermediate().add(ic);
+                        intermediateCertificateRepository.save(par);
+                        return new ResponseEntity<>("", HttpStatus.OK);
+                    }
+                    else {
+                        IssuerData issuerData = keyStoreFileService.readIssuerFromStore("rootCertificateKS.jks", parent, "keystore".toCharArray(), "keystore".toCharArray());
+                        X509Certificate cert = certificateService.generateCertificate(subjectData, issuerData);
+                        String alias = keyStoreFileService.generateAlias();
+                        keyStoreFileService.writeCertificateToKS("immediateCertificateKS.jks", alias, keyPairIssuer.getPrivate(), "keystore".toCharArray(), cert);
+                        IntermediateCertificate ic = new IntermediateCertificate(parent, CertificateEnum.INTERMEDIATE, Boolean.TRUE, alias);
+                        SelfSignedCertificate par = (SelfSignedCertificate) certificateRepository.getByAlias(parent);
+                        intermediateCertificateRepository.save(ic);
+                        par.getChildren().add(ic);
+                        selfSignedCertificateRepository.save(par);
+                        return new ResponseEntity<>("", HttpStatus.OK);
+
+                    }
+                } catch (Exception e ){
+
+                }
+
+            }
+            else if (certificateType.equals("endentity")){
+                IssuerData issuerData = keyStoreFileService.readIssuerFromStore("immediateCertificateKS.jks", parent, "keystore".toCharArray(), "keystore".toCharArray());
+                X509Certificate cert = certificateService.generateCertificate(subjectData, issuerData);
+                String alias = keyStoreFileService.generateAlias();
+                keyStoreFileService.writeCertificateToKS("endEntityCertificateKS.jks", alias, keyPairIssuer.getPrivate(), "keystore".toCharArray(), cert);
+                EndEntityCertificate eec = new EndEntityCertificate(parent, CertificateEnum.END_ENTITY, Boolean.TRUE, alias);
+                IntermediateCertificate par = (IntermediateCertificate) certificateRepository.getByAlias(parent);
+                endEntityCertificateRepository.save(eec);
+                par.getChildrenEndEntity().add(eec);
+                intermediateCertificateRepository.save(par);
+                return new ResponseEntity<>("", HttpStatus.OK);
+
+            }
+
+            else {
+
+            }
 
             //TODO 3 Uraditi cuvanje sertifikata u keystore u zavisnosti koji se pravi
             //password za sve keystore je keystore malim slovima
 
-            return new ResponseEntity<>("", HttpStatus.OK);
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -87,5 +171,29 @@ public class CertificateController {
 		}
     	
         return new ResponseEntity<>(certTemp, HttpStatus.OK);
+    }
+
+    @GetMapping("/getValid/{type}")
+    public ResponseEntity<Set<CertificateDTO>> getValid(@PathVariable String type) throws CertificateException, NoSuchAlgorithmException, KeyStoreException, IOException {
+        try {
+
+        Set<CertificateDTO> temp;
+        temp = keyStoreFileService.getValidCertificatesByFileName(type);
+        Set<CertificateDTO> ret = new HashSet<>();
+        for(CertificateDTO c : temp) {
+            try{
+            Certificate certificate = certificateRepository.getByAlias(c.getAlias());
+            if(certificate.getValid()){
+                ret.add(c);
+            }
+            } catch (Exception e) {
+
+            }
+
+        }
+        return new ResponseEntity<>(ret, HttpStatus.OK);
+        } catch (Exception e){
+            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+        }
     }
 }
