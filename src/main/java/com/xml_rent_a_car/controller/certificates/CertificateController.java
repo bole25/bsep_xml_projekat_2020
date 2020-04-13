@@ -1,10 +1,9 @@
 package com.xml_rent_a_car.controller.certificates;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.security.KeyPair;
-import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -12,24 +11,29 @@ import java.security.cert.X509Certificate;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.xml_rent_a_car.model.Certificate;
 import com.xml_rent_a_car.model.EndEntityCertificate;
 import com.xml_rent_a_car.model.IntermediateCertificate;
 import com.xml_rent_a_car.model.SelfSignedCertificate;
+import com.xml_rent_a_car.model.data.IssuerData;
+import com.xml_rent_a_car.model.data.SubjectData;
+import com.xml_rent_a_car.model.dto.CertificateDTO;
+import com.xml_rent_a_car.model.dto.SubjectDataDTO;
 import com.xml_rent_a_car.model.enumeration.CertificateEnum;
 import com.xml_rent_a_car.repository.CertificateRepository;
 import com.xml_rent_a_car.repository.EndEntityCertificateRepository;
 import com.xml_rent_a_car.repository.IntermediateCertificateRepository;
 import com.xml_rent_a_car.repository.SelfSignedCertificateRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import com.xml_rent_a_car.model.data.IssuerData;
-import com.xml_rent_a_car.model.data.SubjectData;
-import com.xml_rent_a_car.model.dto.CertificateDTO;
-import com.xml_rent_a_car.model.dto.SubjectDataDTO;
 import com.xml_rent_a_car.service.certificates.CertificateService;
 import com.xml_rent_a_car.service.certificates.KeyStoreFileService;
 
@@ -37,6 +41,8 @@ import com.xml_rent_a_car.service.certificates.KeyStoreFileService;
 @RequestMapping("/certificate")
 public class CertificateController {
 
+	public static String eachAlias = "";
+	
     @Autowired
     private CertificateService certificateService;
     
@@ -60,7 +66,7 @@ public class CertificateController {
 
     @PostMapping("/create/{certificateType}/{parent}")
     public ResponseEntity<String> createCertificate(@RequestBody SubjectDataDTO subjectDataDTO, @PathVariable String certificateType, @PathVariable String parent){
-
+    	
         try {
             KeyPair keyPairIssuer = certificateService.generateKeyPair();
             SubjectData subjectData = certificateService.generateSubjectData(subjectDataDTO);
@@ -137,10 +143,6 @@ public class CertificateController {
 
             }
 
-            //TODO 3 Uraditi cuvanje sertifikata u keystore u zavisnosti koji se pravi
-            //password za sve keystore je keystore malim slovima
-
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -172,6 +174,42 @@ public class CertificateController {
     	
         return new ResponseEntity<>(certTemp, HttpStatus.OK);
     }
+    @GetMapping("/getAlias")
+    public ResponseEntity<CertificateDTO> getCertByAlias(){
+    	
+    	Certificate cert = certificateRepository.getByAlias(eachAlias);
+    	java.security.cert.Certificate certSecurity = null;
+    	CertificateDTO certDTO = null;
+    	if(cert.getType() == CertificateEnum.SELF_SIGNED) {
+    		keyStoreFileService.loadKeyStore("rootCertificateKS.jks", "keystore".toCharArray());
+    		certSecurity = keyStoreFileService.readCertificate("rootCertificateKS.jks", "keystore", eachAlias);
+    		if(certSecurity instanceof X509Certificate) {
+    			X509Certificate x = (X509Certificate) certSecurity;
+    			certDTO = new CertificateDTO(x.getIssuerX500Principal().getName(),x.getSubjectX500Principal().getName(),
+    					eachAlias,CertificateEnum.SELF_SIGNED.toString(),cert.getParentAlias());
+    		}
+    	}else if(cert.getType() == CertificateEnum.INTERMEDIATE) {
+    		keyStoreFileService.loadKeyStore("immediateCertificateKS.jks", "keystore".toCharArray());
+    		certSecurity = keyStoreFileService.readCertificate("immediateCertificateKS.jks", "keystore", eachAlias);
+    		if(certSecurity instanceof X509Certificate) {
+    			X509Certificate x = (X509Certificate) certSecurity;
+    			certDTO = new CertificateDTO(x.getIssuerX500Principal().getName(),x.getSubjectX500Principal().getName(),
+    					eachAlias,CertificateEnum.SELF_SIGNED.toString(),cert.getParentAlias());
+    	
+    		}
+    	}else {
+    		keyStoreFileService.loadKeyStore("endEntityCertificateKS.jks", "keystore".toCharArray());
+    		certSecurity = keyStoreFileService.readCertificate("endEntityCertificateKS.jks", "keystore", eachAlias);
+    		if(certSecurity instanceof X509Certificate) {
+    			X509Certificate x = (X509Certificate) certSecurity;
+    			certDTO = new CertificateDTO(x.getIssuerX500Principal().getName(),x.getSubjectX500Principal().getName(),
+    					eachAlias,CertificateEnum.SELF_SIGNED.toString(),cert.getParentAlias());
+    	
+    		}
+    	}
+    	
+        return new ResponseEntity<>(certDTO, HttpStatus.OK);
+    }
 
     @GetMapping("/getValid/{type}")
     public ResponseEntity<Set<CertificateDTO>> getValid(@PathVariable String type) throws CertificateException, NoSuchAlgorithmException, KeyStoreException, IOException {
@@ -196,4 +234,57 @@ public class CertificateController {
             return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
         }
     }
+    @GetMapping(value = "/saveEach/{alias}")
+	public ResponseEntity<CertificateDTO> saveCertEach(@PathVariable String alias) {
+    	eachAlias = alias;
+    	System.out.println(alias);
+		return new ResponseEntity(HttpStatus.OK);
+	}
+    
+    @GetMapping(value = "/makeFile/{alias}")
+	public ResponseEntity<CertificateDTO> makeFile(@PathVariable String alias) {
+    	
+    	Certificate cert = certificateRepository.getByAlias(alias);
+    	java.security.cert.Certificate certSecurity = null;
+    	X509Certificate x = null;
+    	PrintWriter out = null;
+    	try {
+			//out = new PrintWriter("C:\\temp\\cert.cer");
+    		out = new PrintWriter("..\\xml_frontend\\src\\assets\\cert.cer");
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	if(cert.getType() == CertificateEnum.SELF_SIGNED) {
+    		keyStoreFileService.loadKeyStore("rootCertificateKS.jks", "keystore".toCharArray());
+    		certSecurity = keyStoreFileService.readCertificate("rootCertificateKS.jks", "keystore", eachAlias);
+    		if(certSecurity instanceof X509Certificate) {
+    			x = (X509Certificate) certSecurity;
+    		}
+    	}else if(cert.getType() == CertificateEnum.INTERMEDIATE) {
+    		keyStoreFileService.loadKeyStore("immediateCertificateKS.jks", "keystore".toCharArray());
+    		certSecurity = keyStoreFileService.readCertificate("immediateCertificateKS.jks", "keystore", eachAlias);
+    		if(certSecurity instanceof X509Certificate) {
+    			x = (X509Certificate) certSecurity;
+    		}
+    	}else {
+    		keyStoreFileService.loadKeyStore("endEntityCertificateKS.jks", "keystore".toCharArray());
+    		certSecurity = keyStoreFileService.readCertificate("endEntityCertificateKS.jks", "keystore", eachAlias);
+    		if(certSecurity instanceof X509Certificate) {
+    			x = (X509Certificate) certSecurity;	
+    		}
+    	}
+    	out.println("\n===== Podaci o izdavacu sertifikata =====");
+		out.println(x.getIssuerX500Principal().getName());
+		out.println("\n===== Podaci o vlasniku sertifikata =====");
+		out.println(x.getSubjectX500Principal().getName());
+		out.println("\n===== Sertifikat =====");
+		out.println("-------------------------------------------------------");
+		out.println(x);
+		out.println("-------------------------------------------------------");
+		out.flush();
+		out.close();	
+		return new ResponseEntity(null,HttpStatus.OK);
+	}
+    
 }
