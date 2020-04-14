@@ -7,6 +7,8 @@ public class CertificateDTO {
 	private String issuerName;
 	private String subjectName;
 	private String alias;
+	private String type;
+	private String parentAlias;
 	
 	public CertificateDTO() {
 		super();
@@ -17,6 +19,31 @@ public class CertificateDTO {
 		this.issuerName = issuerName;
 		this.subjectName = subjectName;
 	}
+
+	public CertificateDTO(String issuerName, String subjectName, String alias, String type, String parentAlias) {
+		this.issuerName = issuerName;
+		this.subjectName = subjectName;
+		this.alias = alias;
+		this.type = type;
+		this.parentAlias = parentAlias;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public String getParentAlias() {
+		return parentAlias;
+	}
+
+	public void setParentAlias(String parentAlias) {
+		this.parentAlias = parentAlias;
+	}
+
 	public CertificateDTO(X509Certificate c, String alias) {
 		issuerName = c.getIssuerX500Principal().getName();
 		subjectName = c.getSubjectX500Principal().getName();

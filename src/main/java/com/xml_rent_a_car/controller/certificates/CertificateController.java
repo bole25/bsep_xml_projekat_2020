@@ -1,8 +1,11 @@
 package com.xml_rent_a_car.controller.certificates;
 
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.security.KeyPair;
+import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -41,6 +44,7 @@ import com.xml_rent_a_car.service.certificates.KeyStoreFileService;
 @RequestMapping("/certificate")
 public class CertificateController {
 
+    public static String eachAlias = "";
     @Autowired
     private CertificateService certificateService;
     
@@ -264,7 +268,126 @@ public class CertificateController {
     	}
     	
     }
-    
+
+    @GetMapping("/getAlias")
+    public ResponseEntity<CertificateDTO> getCertByAlias(){
+
+        Certificate cert = certificateRepository.getByAlias(eachAlias);
+        java.security.cert.Certificate certSecurity = null;
+        CertificateDTO certDTO = null;
+        if(cert.getType() == CertificateEnum.SELF_SIGNED) {
+            keyStoreFileService.loadKeyStore("rootCertificateKS.jks", "keystore".toCharArray());
+            certSecurity = keyStoreFileService.readCertificate("rootCertificateKS.jks", "keystore", eachAlias);
+            if(certSecurity instanceof X509Certificate) {
+                X509Certificate x = (X509Certificate) certSecurity;
+                certDTO = new CertificateDTO(x.getIssuerX500Principal().getName(),x.getSubjectX500Principal().getName(),
+                        eachAlias,CertificateEnum.SELF_SIGNED.toString(),cert.getParentAlias());
+            }
+        }else if(cert.getType() == CertificateEnum.INTERMEDIATE) {
+            keyStoreFileService.loadKeyStore("immediateCertificateKS.jks", "keystore".toCharArray());
+            certSecurity = keyStoreFileService.readCertificate("immediateCertificateKS.jks", "keystore", eachAlias);
+            if(certSecurity instanceof X509Certificate) {
+                X509Certificate x = (X509Certificate) certSecurity;
+                certDTO = new CertificateDTO(x.getIssuerX500Principal().getName(),x.getSubjectX500Principal().getName(),
+                        eachAlias,CertificateEnum.SELF_SIGNED.toString(),cert.getParentAlias());
+
+            }
+        }else {
+            keyStoreFileService.loadKeyStore("endEntityCertificateKS.jks", "keystore".toCharArray());
+            certSecurity = keyStoreFileService.readCertificate("endEntityCertificateKS.jks", "keystore", eachAlias);
+            if(certSecurity instanceof X509Certificate) {
+                X509Certificate x = (X509Certificate) certSecurity;
+                certDTO = new CertificateDTO(x.getIssuerX500Principal().getName(),x.getSubjectX500Principal().getName(),
+                        eachAlias,CertificateEnum.SELF_SIGNED.toString(),cert.getParentAlias());
+
+            }
+        }
+
+        return new ResponseEntity<>(certDTO, HttpStatus.OK);
+    }
+
+    @GetMapping(value = "/saveEach/{alias}")
+    public ResponseEntity<CertificateDTO> saveCertEach(@PathVariable String alias) {
+        eachAlias = alias;
+        System.out.println(alias);
+        return new ResponseEntity(HttpStatus.OK);
+    }
+
+    @GetMapping(value = "/makeFile/{alias}")
+    public ResponseEntity<CertificateDTO> makeFile(@PathVariable String alias) {
+
+        Certificate cert = certificateRepository.getByAlias(alias);
+        java.security.cert.Certificate certSecurity = null;
+        X509Certificate x = null;
+        PrintWriter out = null;
+        try {
+            //out = new PrintWriter("C:\\temp\\cert.cer");
+            out = new PrintWriter("..\\frontend-xml\\src\\assets\\cert.cer");
+        } catch (FileNotFoundException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        if(cert.getType() == CertificateEnum.SELF_SIGNED) {
+            keyStoreFileService.loadKeyStore("rootCertificateKS.jks", "keystore".toCharArray());
+            certSecurity = keyStoreFileService.readCertificate("rootCertificateKS.jks", "keystore", eachAlias);
+            if(certSecurity instanceof X509Certificate) {
+                x = (X509Certificate) certSecurity;
+            }
+        }else if(cert.getType() == CertificateEnum.INTERMEDIATE) {
+            keyStoreFileService.loadKeyStore("immediateCertificateKS.jks", "keystore".toCharArray());
+            certSecurity = keyStoreFileService.readCertificate("immediateCertificateKS.jks", "keystore", eachAlias);
+            if(certSecurity instanceof X509Certificate) {
+                x = (X509Certificate) certSecurity;
+            }
+        }else {
+            keyStoreFileService.loadKeyStore("endEntityCertificateKS.jks", "keystore".toCharArray());
+            certSecurity = keyStoreFileService.readCertificate("endEntityCertificateKS.jks", "keystore", eachAlias);
+            if(certSecurity instanceof X509Certificate) {
+                x = (X509Certificate) certSecurity;
+            }
+        }
+        out.println("\n===== Podaci o izdavacu sertifikata =====");
+        out.println(x.getIssuerX500Principal().getName());
+        out.println("\n===== Podaci o vlasniku sertifikata =====");
+        out.println(x.getSubjectX500Principal().getName());
+        out.println("\n===== Sertifikat =====");
+        out.println("-------------------------------------------------------");
+        out.println(x);
+        out.println("-------------------------------------------------------");
+        out.flush();
+        out.close();
+        return new ResponseEntity(null,HttpStatus.OK);
+    }
+
+    @GetMapping("/createjks")
+    public ResponseEntity<String> cr() throws CertificateException, NoSuchAlgorithmException, IOException, KeyStoreException {
+        KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+
+        char[] password = "keystore".toCharArray();
+        ks.load(null, password);
+
+// Store away the keystore.
+        FileOutputStream fos = new FileOutputStream("rootCertificateKS.jks");
+        ks.store(fos, password);
+        fos.close();
+        KeyStore ks1 = KeyStore.getInstance(KeyStore.getDefaultType());
+
+        ks1.load(null, password);
+
+// Store away the keystore.
+        FileOutputStream fos1 = new FileOutputStream("immediateCertificateKS.jks");
+        ks1.store(fos1, password);
+        fos1.close();
+        KeyStore ks2 = KeyStore.getInstance(KeyStore.getDefaultType());
+
+        ks2.load(null, password);
+
+// Store away the keystore.
+        FileOutputStream fos2 = new FileOutputStream("endEntityCertificateKS.jks");
+        ks2.store(fos2, password);
+        fos2.close();
+        return new ResponseEntity<>("", HttpStatus.OK);
+    }
     
     
     
