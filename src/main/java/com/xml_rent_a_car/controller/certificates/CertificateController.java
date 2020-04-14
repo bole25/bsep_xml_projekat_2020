@@ -2,7 +2,6 @@ package com.xml_rent_a_car.controller.certificates;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -30,6 +29,7 @@ import com.xml_rent_a_car.model.data.SubjectData;
 import com.xml_rent_a_car.model.dto.CertificateDTO;
 import com.xml_rent_a_car.model.dto.SubjectDataDTO;
 import com.xml_rent_a_car.model.enumeration.CertificateEnum;
+import com.xml_rent_a_car.model.enumeration.TemplateCertificat;
 import com.xml_rent_a_car.repository.CertificateRepository;
 import com.xml_rent_a_car.repository.EndEntityCertificateRepository;
 import com.xml_rent_a_car.repository.IntermediateCertificateRepository;
@@ -41,8 +41,6 @@ import com.xml_rent_a_car.service.certificates.KeyStoreFileService;
 @RequestMapping("/certificate")
 public class CertificateController {
 
-	public static String eachAlias = "";
-	
     @Autowired
     private CertificateService certificateService;
     
@@ -64,8 +62,15 @@ public class CertificateController {
     public CertificateController() {
     }
 
-    @PostMapping("/create/{certificateType}/{parent}")
-    public ResponseEntity<String> createCertificate(@RequestBody SubjectDataDTO subjectDataDTO, @PathVariable String certificateType, @PathVariable String parent){
+    @PostMapping("/create/{certificateType}/{parent}/{pomTemplate}")
+    public ResponseEntity<String> createCertificate(@RequestBody SubjectDataDTO subjectDataDTO, @PathVariable String certificateType, @PathVariable String parent, @PathVariable String pomTemplate){
+    	
+    	TemplateCertificat template = TemplateCertificat.USER;
+    	if(pomTemplate.equals("Computer")) {
+    		template = TemplateCertificat.COMPUTER;
+    	} else if(pomTemplate.equals("Company")) {
+    		template = TemplateCertificat.COMPANY;
+    	}
     	
         try {
             KeyPair keyPairIssuer = certificateService.generateKeyPair();
@@ -77,6 +82,8 @@ public class CertificateController {
                 String alias = keyStoreFileService.generateAlias();
                 keyStoreFileService.writeCertificateToKS("rootCertificateKS.jks", alias, keyPairIssuer.getPrivate(), "keystore".toCharArray(), cert);
                 SelfSignedCertificate sc = new SelfSignedCertificate(alias, CertificateEnum.SELF_SIGNED, Boolean.TRUE, alias);
+                // setujem na prosledjeni template
+                sc.setTemplate(template);
                 selfSignedCertificateRepository.save(sc);
                 return new ResponseEntity<>("", HttpStatus.OK);
             }
@@ -104,6 +111,7 @@ public class CertificateController {
                         IntermediateCertificate par = (IntermediateCertificate) certificateRepository.getByAlias(parent);
                         intermediateCertificateRepository.save(ic);
                         par.getChildrenIntermediate().add(ic);
+                        par.setTemplate(template);
                         intermediateCertificateRepository.save(par);
                         return new ResponseEntity<>("", HttpStatus.OK);
                     }
@@ -116,6 +124,7 @@ public class CertificateController {
                         SelfSignedCertificate par = (SelfSignedCertificate) certificateRepository.getByAlias(parent);
                         intermediateCertificateRepository.save(ic);
                         par.getChildren().add(ic);
+                        par.setTemplate(template);
                         selfSignedCertificateRepository.save(par);
                         return new ResponseEntity<>("", HttpStatus.OK);
 
@@ -133,6 +142,7 @@ public class CertificateController {
                 EndEntityCertificate eec = new EndEntityCertificate(parent, CertificateEnum.END_ENTITY, Boolean.TRUE, alias);
                 IntermediateCertificate par = (IntermediateCertificate) certificateRepository.getByAlias(parent);
                 endEntityCertificateRepository.save(eec);
+                par.setTemplate(template);
                 par.getChildrenEndEntity().add(eec);
                 intermediateCertificateRepository.save(par);
                 return new ResponseEntity<>("", HttpStatus.OK);
@@ -174,42 +184,6 @@ public class CertificateController {
     	
         return new ResponseEntity<>(certTemp, HttpStatus.OK);
     }
-    @GetMapping("/getAlias")
-    public ResponseEntity<CertificateDTO> getCertByAlias(){
-    	
-    	Certificate cert = certificateRepository.getByAlias(eachAlias);
-    	java.security.cert.Certificate certSecurity = null;
-    	CertificateDTO certDTO = null;
-    	if(cert.getType() == CertificateEnum.SELF_SIGNED) {
-    		keyStoreFileService.loadKeyStore("rootCertificateKS.jks", "keystore".toCharArray());
-    		certSecurity = keyStoreFileService.readCertificate("rootCertificateKS.jks", "keystore", eachAlias);
-    		if(certSecurity instanceof X509Certificate) {
-    			X509Certificate x = (X509Certificate) certSecurity;
-    			certDTO = new CertificateDTO(x.getIssuerX500Principal().getName(),x.getSubjectX500Principal().getName(),
-    					eachAlias,CertificateEnum.SELF_SIGNED.toString(),cert.getParentAlias());
-    		}
-    	}else if(cert.getType() == CertificateEnum.INTERMEDIATE) {
-    		keyStoreFileService.loadKeyStore("immediateCertificateKS.jks", "keystore".toCharArray());
-    		certSecurity = keyStoreFileService.readCertificate("immediateCertificateKS.jks", "keystore", eachAlias);
-    		if(certSecurity instanceof X509Certificate) {
-    			X509Certificate x = (X509Certificate) certSecurity;
-    			certDTO = new CertificateDTO(x.getIssuerX500Principal().getName(),x.getSubjectX500Principal().getName(),
-    					eachAlias,CertificateEnum.SELF_SIGNED.toString(),cert.getParentAlias());
-    	
-    		}
-    	}else {
-    		keyStoreFileService.loadKeyStore("endEntityCertificateKS.jks", "keystore".toCharArray());
-    		certSecurity = keyStoreFileService.readCertificate("endEntityCertificateKS.jks", "keystore", eachAlias);
-    		if(certSecurity instanceof X509Certificate) {
-    			X509Certificate x = (X509Certificate) certSecurity;
-    			certDTO = new CertificateDTO(x.getIssuerX500Principal().getName(),x.getSubjectX500Principal().getName(),
-    					eachAlias,CertificateEnum.SELF_SIGNED.toString(),cert.getParentAlias());
-    	
-    		}
-    	}
-    	
-        return new ResponseEntity<>(certDTO, HttpStatus.OK);
-    }
 
     @GetMapping("/getValid/{type}")
     public ResponseEntity<Set<CertificateDTO>> getValid(@PathVariable String type) throws CertificateException, NoSuchAlgorithmException, KeyStoreException, IOException {
@@ -234,57 +208,83 @@ public class CertificateController {
             return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
         }
     }
-    @GetMapping(value = "/saveEach/{alias}")
-	public ResponseEntity<CertificateDTO> saveCertEach(@PathVariable String alias) {
-    	eachAlias = alias;
-    	System.out.println(alias);
-		return new ResponseEntity(HttpStatus.OK);
-	}
     
-    @GetMapping(value = "/makeFile/{alias}")
-	public ResponseEntity<CertificateDTO> makeFile(@PathVariable String alias) {
+    
+    @PostMapping("/unvalidate")
+    public ResponseEntity<String> unvalidateCertificate(@RequestBody String alias) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, FileNotFoundException, IOException{
+
+    	System.out.println("Pozvana je funkcija za devalidaciju");
+    	// odkomentarisi kad odbagujes zasto front ne pogadja back
     	
-    	Certificate cert = certificateRepository.getByAlias(alias);
-    	java.security.cert.Certificate certSecurity = null;
-    	X509Certificate x = null;
-    	PrintWriter out = null;
-    	try {
-			//out = new PrintWriter("C:\\temp\\cert.cer");
-    		out = new PrintWriter("..\\xml_frontend\\src\\assets\\cert.cer");
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-    	if(cert.getType() == CertificateEnum.SELF_SIGNED) {
-    		keyStoreFileService.loadKeyStore("rootCertificateKS.jks", "keystore".toCharArray());
-    		certSecurity = keyStoreFileService.readCertificate("rootCertificateKS.jks", "keystore", eachAlias);
-    		if(certSecurity instanceof X509Certificate) {
-    			x = (X509Certificate) certSecurity;
-    		}
-    	}else if(cert.getType() == CertificateEnum.INTERMEDIATE) {
-    		keyStoreFileService.loadKeyStore("immediateCertificateKS.jks", "keystore".toCharArray());
-    		certSecurity = keyStoreFileService.readCertificate("immediateCertificateKS.jks", "keystore", eachAlias);
-    		if(certSecurity instanceof X509Certificate) {
-    			x = (X509Certificate) certSecurity;
-    		}
-    	}else {
-    		keyStoreFileService.loadKeyStore("endEntityCertificateKS.jks", "keystore".toCharArray());
-    		certSecurity = keyStoreFileService.readCertificate("endEntityCertificateKS.jks", "keystore", eachAlias);
-    		if(certSecurity instanceof X509Certificate) {
-    			x = (X509Certificate) certSecurity;	
-    		}
+    	Certificate certificate = certificateRepository.getByAlias(alias);
+    	
+    	certificate.setValid(false);
+    	if( !(certificate instanceof EndEntityCertificate)) {
+    		unvalidateCertificatesChildren(certificate);
+    	} else {
+    		endEntityCertificateRepository.save((EndEntityCertificate)certificate);
     	}
-    	out.println("\n===== Podaci o izdavacu sertifikata =====");
-		out.println(x.getIssuerX500Principal().getName());
-		out.println("\n===== Podaci o vlasniku sertifikata =====");
-		out.println(x.getSubjectX500Principal().getName());
-		out.println("\n===== Sertifikat =====");
-		out.println("-------------------------------------------------------");
-		out.println(x);
-		out.println("-------------------------------------------------------");
-		out.flush();
-		out.close();	
-		return new ResponseEntity(null,HttpStatus.OK);
-	}
+        
+    	return new ResponseEntity<>("", HttpStatus.OK);
+    	
+    }
+    
+    private void unvalidateCertificatesChildren(Certificate certificate) {
+ 	   	certificate.setValid(false);
+    	if(certificate instanceof IntermediateCertificate) {
+    		
+
+    		IntermediateCertificate intCer = (IntermediateCertificate)certificate;
+    		Set<IntermediateCertificate> childrenIntermediat = intCer.getChildrenIntermediate();
+    		Set<EndEntityCertificate> childrenEndEntity = intCer.getChildrenEndEntity();
+    		
+    		// unvalidation of children certificates
+    		for(Certificate c : childrenIntermediat) {
+    			unvalidateCertificatesChildren(c);
+    		}
+    		// end-entity certificates have no children
+    		for(EndEntityCertificate c : childrenEndEntity) {
+    			c.setValid(false);
+    			endEntityCertificateRepository.save(c);
+    		}
+            intermediateCertificateRepository.save(intCer);
+    		
+    	} else if(certificate instanceof SelfSignedCertificate) {
+    		
+    		SelfSignedCertificate selfSifnedCer = (SelfSignedCertificate)certificate;
+    		Set<IntermediateCertificate> childrenIntermediat = selfSifnedCer.getChildren();
+
+    		/// unvalidation of children certificates
+    		for(Certificate c : childrenIntermediat) {
+    			unvalidateCertificatesChildren(c);
+    		}
+    		
+    		selfSignedCertificateRepository.save(selfSifnedCer);
+    	
+    	}
+    	
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
 }

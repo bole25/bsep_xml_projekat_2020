@@ -3,7 +3,7 @@ package com.xml_rent_a_car.model;
 import com.xml_rent_a_car.model.data.IssuerData;
 import com.xml_rent_a_car.model.data.SubjectData;
 import com.xml_rent_a_car.model.enumeration.CertificateEnum;
-
+import com.xml_rent_a_car.model.enumeration.TemplateCertificat;
 
 import static javax.persistence.InheritanceType.JOINED;
 
@@ -32,6 +32,9 @@ public class Certificate {
     @Column(unique = true)
     private String alias;
 
+    @Column
+    private TemplateCertificat template;
+    
     public Certificate() {
 
     }
@@ -41,8 +44,31 @@ public class Certificate {
         this.type = type;
         this.valid = valid;
         this.alias = alias;
+        this.template = TemplateCertificat.USER; // let it be default template
     }
-
+    
+    public Certificate(String parentAlias, CertificateEnum type, Boolean valid, String alias, TemplateCertificat template) {
+        this.parentAlias = parentAlias;
+        this.type = type;
+        this.valid = valid;
+        this.alias = alias;
+        this.template = template;
+    }
+    
+    public Certificate(String parentAlias, CertificateEnum type, Boolean valid, String alias, String template) {
+        this.parentAlias = parentAlias;
+        this.type = type;
+        this.valid = valid;
+        this.alias = alias;
+        if(template.equals("User")) {
+        	this.template = TemplateCertificat.USER;
+        } else if(template.equals("Computer")) {
+        	this.template = TemplateCertificat.COMPUTER;
+        } else {
+        	this.template = TemplateCertificat.COMPANY;
+        }
+    }
+    
     public Long getId() {
         return id;
     }
@@ -82,4 +108,13 @@ public class Certificate {
     public void setAlias(String alias) {
         this.alias = alias;
     }
+
+	public TemplateCertificat getTemplate() {
+		return template;
+	}
+
+	public void setTemplate(TemplateCertificat template) {
+		this.template = template;
+	}
+    
 }
